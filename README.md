@@ -1,8 +1,8 @@
 # webdav
 
-[![Build](https://img.shields.io/circleci/project/github/hacdias/webdav/master.svg?style=flat-square)](https://circleci.com/gh/hacdias/webdav)
-[![Go Report Card](https://goreportcard.com/badge/github.com/hacdias/webdav?style=flat-square)](https://goreportcard.com/report/hacdias/webdav)
-[![Version](https://img.shields.io/github/release/hacdias/webdav.svg?style=flat-square)](https://github.com/hacdias/webdav/releases/latest)
+[![Build](https://img.shields.io/circleci/project/github)](https://circleci.com/gh/)
+[![Go Report Card](https://goreportcard.com/badge/github.com/)](https://goreportcard.com/report/)
+[![Version](https://img.shields.io/github/release/)](https://github.com/)
 
 ## Install
 
