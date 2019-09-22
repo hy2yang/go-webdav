@@ -113,9 +113,16 @@ func (c *Config) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// If this request modified the files and the user doesn't have permission
 	// to do so, return forbidden.
-	if (r.Method == "PUT" || r.Method == "POST" || r.Method == "MKCOL" ||
-		r.Method == "DELETE" || r.Method == "COPY" || r.Method == "MOVE") &&
-		!u.Modify {
+	/*
+		if (r.Method == "PUT" || r.Method == "POST" || r.Method == "MKCOL" ||
+			r.Method == "DELETE" || r.Method == "COPY" || r.Method == "MOVE") &&
+			!u.Modify {
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+	*/
+
+	if isMethodAllowed(r) && !u.Modify {
 		w.WriteHeader(http.StatusForbidden)
 		return
 	}
@@ -140,6 +147,23 @@ func (c *Config) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Runs the WebDAV.
 	u.Handler.ServeHTTP(w, r)
+}
+
+func isMethodAllowed(r *http.Request) bool {
+	allowed := map[string]struct{}{
+		"PUT":    {},
+		"POST":   {},
+		"MKCOL":  {},
+		"DELETE": {},
+		"COPY":   {},
+		"MOVE":   {},
+	}
+
+	if _, ok := allowed[r.Method]; ok {
+		return true
+	}
+
+	return false
 }
 
 // responseWriterNoBody is a wrapper used to suprress the body of the response

@@ -5,10 +5,8 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"strings"
 
 	"github.com/spf13/cobra"
-	v "github.com/spf13/viper"
 )
 
 var (
@@ -26,6 +24,13 @@ func init() {
 	flags.String("key", "key.pem", "TLS key")
 	flags.StringP("address", "a", "0.0.0.0", "address to listen to")
 	flags.StringP("port", "p", "0", "port to listen to")
+}
+
+// Execute executes the commands.
+func Execute() {
+	if err := rootCmd.Execute(); err != nil {
+		log.Fatal(err)
+	}
 }
 
 var rootCmd = &cobra.Command{
@@ -53,8 +58,8 @@ set WD_CERT.`,
 		cfg := readConfig(flags)
 
 		// Builds the address and a listener.
-		laddr := getOpt(flags, "address") + ":" + getOpt(flags, "port")
-		listener, err := net.Listen("tcp", laddr)
+		address := getOpt(flags, "address") + ":" + getOpt(flags, "port")
+		listener, err := net.Listen("tcp", address)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -73,27 +78,4 @@ set WD_CERT.`,
 			}
 		}
 	},
-}
-
-func initConfig() {
-	if cfgFile == "" {
-		v.AddConfigPath(".")
-		v.AddConfigPath("/etc/webdav/")
-		v.SetConfigName("config")
-	} else {
-		v.SetConfigFile(cfgFile)
-	}
-
-	v.SetEnvPrefix("WD")
-	v.AutomaticEnv()
-	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-
-	if err := v.ReadInConfig(); err != nil {
-		if _, ok := err.(v.ConfigParseError); ok {
-			panic(err)
-		}
-		cfgFile = "No config file used"
-	} else {
-		cfgFile = "Using config file: " + v.ConfigFileUsed()
-	}
 }

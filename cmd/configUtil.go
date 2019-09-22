@@ -203,3 +203,26 @@ func readConfig(flags *pflag.FlagSet) *webdav.Config {
 
 	return cfg
 }
+
+func initConfig() {
+	if cfgFile == "" {
+		v.AddConfigPath(".")
+		v.AddConfigPath("/etc/webdav/")
+		v.SetConfigName("config")
+	} else {
+		v.SetConfigFile(cfgFile)
+	}
+
+	v.SetEnvPrefix("WD")
+	v.AutomaticEnv()
+	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+
+	if err := v.ReadInConfig(); err != nil {
+		if _, ok := err.(v.ConfigParseError); ok {
+			panic(err)
+		}
+		cfgFile = "No config file used"
+	} else {
+		cfgFile = "Using config file: " + v.ConfigFileUsed()
+	}
+}
