@@ -7,6 +7,8 @@ import (
 	"net/http"
 
 	"github.com/spf13/cobra"
+
+	"github.com/hy2yang/go-webdav/webdav"
 )
 
 var (
@@ -54,8 +56,9 @@ name in caps. So to set "cert" via an env variable, you should
 set WD_CERT.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		flags := cmd.Flags()
-
-		cfg := readConfig(flags)
+		handler := &webdav.ConfigBasedWebdavHandler{
+			Config: readConfig(flags),
+		}
 
 		// Builds the address and a listener.
 		address := getOpt(flags, "address") + ":" + getOpt(flags, "port")
@@ -69,11 +72,11 @@ set WD_CERT.`,
 
 		// Starts the server.
 		if getOptB(flags, "tls") {
-			if err := http.ServeTLS(listener, cfg, getOpt(flags, "cert"), getOpt(flags, "key")); err != nil {
+			if err := http.ServeTLS(listener, handler, getOpt(flags, "cert"), getOpt(flags, "key")); err != nil {
 				log.Fatal(err)
 			}
 		} else {
-			if err := http.Serve(listener, cfg); err != nil {
+			if err := http.Serve(listener, handler); err != nil {
 				log.Fatal(err)
 			}
 		}

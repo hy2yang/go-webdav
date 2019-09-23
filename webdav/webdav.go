@@ -5,6 +5,8 @@ import (
 	"log"
 	"net/http"
 	"strings"
+
+	"golang.org/x/net/webdav"
 )
 
 // CorsCfg is the CORS config.
@@ -25,21 +27,26 @@ type Config struct {
 	Users map[string]*User
 }
 
-// ServeHTTP determines if the request is for this plugin, and if all prerequisites are met.
-func (c *Config) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	u := c.User
+// ConfigBasedWebdavHandler is a wrapper around config to expose ServeHTTP only
+type ConfigBasedWebdavHandler struct {
+	Config  *Config
+	handler *webdav.Handler
+}
+
+func (h *ConfigBasedWebdavHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	u := h.Config.User
 	requestOrigin := r.Header.Get("Origin")
 
 	// Add CORS headers before any operation so even on a 401 unauthorized status, CORS will work.
-	if c.Cors.Enabled && requestOrigin != "" {
+	if h.Config.Cors.Enabled && requestOrigin != "" {
 		headers := w.Header()
 
-		allowedHeaders := strings.Join(c.Cors.AllowedHeaders, ", ")
-		allowedMethods := strings.Join(c.Cors.AllowedMethods, ", ")
-		exposedHeaders := strings.Join(c.Cors.ExposedHeaders, ", ")
+		allowedHeaders := strings.Join(h.Config.Cors.AllowedHeaders, ", ")
+		allowedMethods := strings.Join(h.Config.Cors.AllowedMethods, ", ")
+		exposedHeaders := strings.Join(h.Config.Cors.ExposedHeaders, ", ")
 
-		allowAllHosts := len(c.Cors.AllowedHosts) == 1 && c.Cors.AllowedHosts[0] == "*"
-		allowedHost := isAllowedHost(c.Cors.AllowedHosts, requestOrigin)
+		allowAllHosts := len(h.Config.Cors.AllowedHosts) == 1 && h.Config.Cors.AllowedHosts[0] == "*"
+		allowedHost := isAllowedHost(h.Config.Cors.AllowedHosts, requestOrigin)
 
 		if allowAllHosts {
 			headers.Set("Access-Control-Allow-Origin", "*")
@@ -51,22 +58,22 @@ func (c *Config) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			headers.Set("Access-Control-Allow-Headers", allowedHeaders)
 			headers.Set("Access-Control-Allow-Methods", allowedMethods)
 
-			if c.Cors.Credentials {
+			if h.Config.Cors.Credentials {
 				headers.Set("Access-Control-Allow-Credentials", "true")
 			}
 
-			if len(c.Cors.ExposedHeaders) > 0 {
+			if len(h.Config.Cors.ExposedHeaders) > 0 {
 				headers.Set("Access-Control-Expose-Headers", exposedHeaders)
 			}
 		}
 	}
 
-	if r.Method == "OPTIONS" && c.Cors.Enabled && requestOrigin != "" {
+	if r.Method == "OPTIONS" && h.Config.Cors.Enabled && requestOrigin != "" {
 		return
 	}
 
 	// Authentication
-	if c.Auth {
+	if h.Config.Auth {
 		w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
 
 		// Gets the correct user for this request.
@@ -76,7 +83,7 @@ func (c *Config) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		user, ok := c.Users[username]
+		user, ok := h.Config.Users[username]
 		if !ok {
 			http.Error(w, "Not authorized", 401)
 			return
@@ -95,7 +102,7 @@ func (c *Config) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// plugin implementation.
 		username, _, ok := r.BasicAuth()
 		if ok {
-			if user, ok := c.Users[username]; ok {
+			if user, ok := h.Config.Users[username]; ok {
 				u = user
 			}
 		}
@@ -135,7 +142,7 @@ func (c *Config) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	//
 	// Get, when applied to collection, will return the same as PROPFIND method.
 	if r.Method == "GET" {
-		info, err := u.Handler.FileSystem.Stat(context.TODO(), r.URL.Path)
+		info, err := h.handler.FileSystem.Stat(context.TODO(), r.URL.Path)
 		if err == nil && info.IsDir() {
 			r.Method = "PROPFIND"
 
@@ -146,8 +153,141 @@ func (c *Config) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Runs the WebDAV.
-	u.Handler.ServeHTTP(w, r)
+	//u.Handler.ServeHTTP(w, r)
+	h.handler.ServeHTTP(w, r)
 }
+
+// GetConfigBasedWebdavHandler generates a handler from config
+// func GetConfigBasedWebdavHandler(cfg Config) ConfigBasedWebdavHandler {
+// 	handler := ConfigBasedWebdavHandler{
+// 		ServeHTTP: cfg.ServeHTTP,
+// 	}
+// 	return handler
+// }
+
+// ServeHTTP determines if the request is for this plugin, and if all prerequisites are met.
+// func (c *Config) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+// 	u := c.User
+// 	requestOrigin := r.Header.Get("Origin")
+
+// 	// Add CORS headers before any operation so even on a 401 unauthorized status, CORS will work.
+// 	if c.Cors.Enabled && requestOrigin != "" {
+// 		headers := w.Header()
+
+// 		allowedHeaders := strings.Join(c.Cors.AllowedHeaders, ", ")
+// 		allowedMethods := strings.Join(c.Cors.AllowedMethods, ", ")
+// 		exposedHeaders := strings.Join(c.Cors.ExposedHeaders, ", ")
+
+// 		allowAllHosts := len(c.Cors.AllowedHosts) == 1 && c.Cors.AllowedHosts[0] == "*"
+// 		allowedHost := isAllowedHost(c.Cors.AllowedHosts, requestOrigin)
+
+// 		if allowAllHosts {
+// 			headers.Set("Access-Control-Allow-Origin", "*")
+// 		} else if allowedHost {
+// 			headers.Set("Access-Control-Allow-Origin", requestOrigin)
+// 		}
+
+// 		if allowAllHosts || allowedHost {
+// 			headers.Set("Access-Control-Allow-Headers", allowedHeaders)
+// 			headers.Set("Access-Control-Allow-Methods", allowedMethods)
+
+// 			if c.Cors.Credentials {
+// 				headers.Set("Access-Control-Allow-Credentials", "true")
+// 			}
+
+// 			if len(c.Cors.ExposedHeaders) > 0 {
+// 				headers.Set("Access-Control-Expose-Headers", exposedHeaders)
+// 			}
+// 		}
+// 	}
+
+// 	if r.Method == "OPTIONS" && c.Cors.Enabled && requestOrigin != "" {
+// 		return
+// 	}
+
+// 	// Authentication
+// 	if c.Auth {
+// 		w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
+
+// 		// Gets the correct user for this request.
+// 		username, password, ok := r.BasicAuth()
+// 		if !ok {
+// 			http.Error(w, "Not authorized", 401)
+// 			return
+// 		}
+
+// 		user, ok := c.Users[username]
+// 		if !ok {
+// 			http.Error(w, "Not authorized", 401)
+// 			return
+// 		}
+
+// 		if !checkPassword(user.Password, password) {
+// 			log.Println("Wrong Password for user", username)
+// 			http.Error(w, "Not authorized", 401)
+// 			return
+// 		}
+
+// 		u = user
+// 	} else {
+// 		// Even if Auth is disabled, we might want to get
+// 		// the user from the Basic Auth header. Useful for Caddy
+// 		// plugin implementation.
+// 		username, _, ok := r.BasicAuth()
+// 		if ok {
+// 			if user, ok := c.Users[username]; ok {
+// 				u = user
+// 			}
+// 		}
+// 	}
+
+// 	// Checks for user permissions relatively to this PATH.
+// 	if !u.Allowed(r.URL.Path) {
+// 		w.WriteHeader(http.StatusForbidden)
+// 		return
+// 	}
+
+// 	if r.Method == "HEAD" {
+// 		w = newResponseWriterNoBody(w)
+// 	}
+
+// 	// If this request modified the files and the user doesn't have permission
+// 	// to do so, return forbidden.
+// 	/*
+// 		if (r.Method == "PUT" || r.Method == "POST" || r.Method == "MKCOL" ||
+// 			r.Method == "DELETE" || r.Method == "COPY" || r.Method == "MOVE") &&
+// 			!u.Modify {
+// 			w.WriteHeader(http.StatusForbidden)
+// 			return
+// 		}
+// 	*/
+
+// 	if isMethodAllowed(r) && !u.Modify {
+// 		w.WriteHeader(http.StatusForbidden)
+// 		return
+// 	}
+
+// 	// Excerpt from RFC4918, section 9.4:
+// 	//
+// 	// 		GET, when applied to a collection, may return the contents of an
+// 	//		"index.html" resource, a human-readable view of the contents of
+// 	//		the collection, or something else altogether.
+// 	//
+// 	// Get, when applied to collection, will return the same as PROPFIND method.
+// 	if r.Method == "GET" {
+// 		info, err := u.Handler.FileSystem.Stat(context.TODO(), r.URL.Path)
+// 		if err == nil && info.IsDir() {
+// 			r.Method = "PROPFIND"
+
+// 			if r.Header.Get("Depth") == "" {
+// 				r.Header.Add("Depth", "1")
+// 			}
+// 		}
+// 	}
+
+// 	// Runs the WebDAV.
+// 	u.Handler.ServeHTTP(w, r)
+// }
 
 func isMethodAllowed(r *http.Request) bool {
 	allowed := map[string]struct{}{

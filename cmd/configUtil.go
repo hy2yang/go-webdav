@@ -8,7 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/hy2yang/webdav/webdav"
+	"github.com/hy2yang/go-webdav/webdav"
+
 	"github.com/spf13/pflag"
 	v "github.com/spf13/viper"
 	wd "golang.org/x/net/webdav"
@@ -226,4 +227,3 @@ func corsProperty(property string, cfg map[string]interface{}) []string {
 
 	return def
 }
-
