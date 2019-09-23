@@ -14,6 +14,70 @@ import (
 	wd "golang.org/x/net/webdav"
 )
 
+func initConfig() {
+	if cfgFile == "" {
+		v.AddConfigPath(".")
+		v.AddConfigPath("/etc/webdav/")
+		v.SetConfigName("config")
+	} else {
+		v.SetConfigFile(cfgFile)
+	}
+
+	v.SetEnvPrefix("WD")
+	v.AutomaticEnv()
+	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+
+	if err := v.ReadInConfig(); err != nil {
+		if _, ok := err.(v.ConfigParseError); ok {
+			panic(err)
+		}
+		cfgFile = "No config file used"
+	} else {
+		cfgFile = "Using config file: " + v.ConfigFileUsed()
+	}
+}
+
+func readConfig(flags *pflag.FlagSet) *webdav.Config {
+	cfg := &webdav.Config{
+		User: &webdav.User{
+			Scope:  getOpt(flags, "scope"),
+			Modify: getOptB(flags, "modify"),
+			Rules:  []*webdav.Rule{},
+			Handler: &wd.Handler{
+				FileSystem: wd.Dir(getOpt(flags, "scope")),
+				LockSystem: wd.NewMemLS(),
+			},
+		},
+		Auth: getOptB(flags, "auth"),
+		Cors: webdav.CorsCfg{
+			Enabled:     false,
+			Credentials: false,
+		},
+		Users: map[string]*webdav.User{},
+	}
+
+	rawRules := v.Get("rules")
+	if rules, ok := rawRules.([]interface{}); ok {
+		cfg.User.Rules = parseRules(rules)
+	}
+
+	rawUsers := v.Get("users")
+	if users, ok := rawUsers.([]interface{}); ok {
+		parseUsers(users, cfg)
+	}
+
+	rawCors := v.Get("cors")
+	if cors, ok := rawCors.(map[string]interface{}); ok {
+		parseCors(cors, cfg)
+	}
+
+	if len(cfg.Users) != 0 && !cfg.Auth {
+		log.Print("Users will be ignored due to auth=false")
+	}
+
+	return cfg
+}
+
 func parseRules(raw []interface{}) []*webdav.Rule {
 	rules := []*webdav.Rule{}
 
@@ -163,66 +227,3 @@ func corsProperty(property string, cfg map[string]interface{}) []string {
 	return def
 }
 
-func readConfig(flags *pflag.FlagSet) *webdav.Config {
-	cfg := &webdav.Config{
-		User: &webdav.User{
-			Scope:  getOpt(flags, "scope"),
-			Modify: getOptB(flags, "modify"),
-			Rules:  []*webdav.Rule{},
-			Handler: &wd.Handler{
-				FileSystem: wd.Dir(getOpt(flags, "scope")),
-				LockSystem: wd.NewMemLS(),
-			},
-		},
-		Auth: getOptB(flags, "auth"),
-		Cors: webdav.CorsCfg{
-			Enabled:     false,
-			Credentials: false,
-		},
-		Users: map[string]*webdav.User{},
-	}
-
-	rawRules := v.Get("rules")
-	if rules, ok := rawRules.([]interface{}); ok {
-		cfg.User.Rules = parseRules(rules)
-	}
-
-	rawUsers := v.Get("users")
-	if users, ok := rawUsers.([]interface{}); ok {
-		parseUsers(users, cfg)
-	}
-
-	rawCors := v.Get("cors")
-	if cors, ok := rawCors.(map[string]interface{}); ok {
-		parseCors(cors, cfg)
-	}
-
-	if len(cfg.Users) != 0 && !cfg.Auth {
-		log.Print("Users will be ignored due to auth=false")
-	}
-
-	return cfg
-}
-
-func initConfig() {
-	if cfgFile == "" {
-		v.AddConfigPath(".")
-		v.AddConfigPath("/etc/webdav/")
-		v.SetConfigName("config")
-	} else {
-		v.SetConfigFile(cfgFile)
-	}
-
-	v.SetEnvPrefix("WD")
-	v.AutomaticEnv()
-	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-
-	if err := v.ReadInConfig(); err != nil {
-		if _, ok := err.(v.ConfigParseError); ok {
-			panic(err)
-		}
-		cfgFile = "No config file used"
-	} else {
-		cfgFile = "Using config file: " + v.ConfigFileUsed()
-	}
-}
