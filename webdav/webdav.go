@@ -74,10 +74,6 @@ func (h *ConfigBasedWebdavHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 		u = user
 	}
 
-	if r.Method == "HEAD" {
-		w = newResponseWriterNoBody(w)
-	}
-
 	h.serveFiles(u, w, r)
 }
 
@@ -146,6 +142,10 @@ func (h *ConfigBasedWebdavHandler) serveFiles(user *User, w http.ResponseWriter,
 	}
 
 	handler := h.getHanlderOf(user)
+
+	if r.Method == "HEAD" {
+		w = newResponseWriterNoBody(w)
+	}
 
 	if r.Method == "GET" {
 		info, err := handler.FileSystem.Stat(context.TODO(), r.URL.Path)
