@@ -3,7 +3,6 @@ package webdav
 import (
 	"regexp"
 	"strings"
-	//"golang.org/x/net/webdav"
 )
 
 // Rule is a dissalow/allow rule.
@@ -21,7 +20,6 @@ type User struct {
 	Scope    string
 	Modify   bool
 	Rules    []*Rule
-	//Handler  *webdav.Handler
 }
 
 // Allowed checks if the user has permission to access a directory/file
