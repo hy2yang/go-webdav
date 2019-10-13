@@ -56,9 +56,7 @@ name in caps. So to set "cert" via an env variable, you should
 set WD_CERT.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		flags := cmd.Flags()
-		handler := &webdav.ConfigBasedWebdavHandler{
-			Config: readConfig(flags),
-		}
+		handler := webdav.HandlerFromConfig(readConfig(flags))
 
 		// Builds the address and a listener.
 		address := getOpt(flags, "address") + ":" + getOpt(flags, "port")
