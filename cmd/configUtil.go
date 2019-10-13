@@ -8,10 +8,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/hy2yang/webdav/webdav"
+	"github.com/hy2yang/go-webdav/webdav"
+
 	"github.com/spf13/pflag"
 	v "github.com/spf13/viper"
-	wd "golang.org/x/net/webdav"
 )
 
 func initConfig() {
@@ -43,10 +43,6 @@ func readConfig(flags *pflag.FlagSet) *webdav.Config {
 			Scope:  getOpt(flags, "scope"),
 			Modify: getOptB(flags, "modify"),
 			Rules:  []*webdav.Rule{},
-			Handler: &wd.Handler{
-				FileSystem: wd.Dir(getOpt(flags, "scope")),
-				LockSystem: wd.NewMemLS(),
-			},
 		},
 		Auth: getOptB(flags, "auth"),
 		Cors: webdav.CorsCfg{
@@ -176,12 +172,7 @@ func parseUsers(raw []interface{}, c *webdav.Config) {
 			if rules, ok := u["rules"].([]interface{}); ok {
 				user.Rules = parseRules(rules)
 			}
-
-			user.Handler = &wd.Handler{
-				FileSystem: wd.Dir(user.Scope),
-				LockSystem: wd.NewMemLS(),
-			}
-
+			
 			c.Users[username] = user
 		}
 	}
@@ -226,4 +217,3 @@ func corsProperty(property string, cfg map[string]interface{}) []string {
 
 	return def
 }
-

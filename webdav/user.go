@@ -3,8 +3,6 @@ package webdav
 import (
 	"regexp"
 	"strings"
-
-	"golang.org/x/net/webdav"
 )
 
 // Rule is a dissalow/allow rule.
@@ -22,27 +20,20 @@ type User struct {
 	Scope    string
 	Modify   bool
 	Rules    []*Rule
-	Handler  *webdav.Handler
 }
 
 // Allowed checks if the user has permission to access a directory/file
 func (u User) Allowed(url string) bool {
-	var rule *Rule
-	i := len(u.Rules) - 1
 
-	for i >= 0 {
-		rule = u.Rules[i]
-
-		if rule.Regex {
-			if rule.Regexp.MatchString(url) {
-				return rule.Allow
-			}
-		} else if strings.HasPrefix(url, rule.Path) {
-			return rule.Allow
+	for i := 0; i <= len(u.Rules)-1; i++ {
+		if u.Rules[i].match(url) {
+			return u.Rules[i].Allow
 		}
-
-		i--
 	}
 
 	return true
+}
+
+func (r Rule) match(url string) bool {
+	return (r.Regex && r.Regexp.MatchString(url)) || (!r.Regex && strings.HasPrefix(url, r.Path))
 }

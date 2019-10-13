@@ -1,4 +1,4 @@
-module github.com/hy2yang/webdav
+module github.com/hy2yang/go-webdav
 
 go 1.13
 

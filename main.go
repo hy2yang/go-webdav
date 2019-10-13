@@ -3,7 +3,7 @@ package main
 import (
 	"runtime"
 
-	"github.com/hy2yang/webdav/cmd"
+	"github.com/hy2yang/go-webdav/cmd"
 )
 
 func main() {
