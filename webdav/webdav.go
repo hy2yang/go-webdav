@@ -21,7 +21,6 @@ type CorsCfg struct {
 
 // Config is the configuration of a WebDAV instance.
 type Config struct {
-	//*User
 	Auth  bool
 	Cors  CorsCfg
 	Users map[string]*User
@@ -29,7 +28,7 @@ type Config struct {
 
 // ConfigBasedWebdavHandler is a wrapper around config to expose ServeHTTP only
 type ConfigBasedWebdavHandler struct {
-	Config        *Config
+	config        *Config
 	allowAllHosts bool
 	handlers      map[*User]*webdav.Handler
 }
@@ -45,7 +44,7 @@ func HandlerFromConfig(c *Config) *ConfigBasedWebdavHandler {
 	}
 
 	return &ConfigBasedWebdavHandler{
-		Config:        c,
+		config:        c,
 		allowAllHosts: allowAllHosts,
 		handlers:      make(map[*User]*webdav.Handler),
 	}
@@ -53,10 +52,10 @@ func HandlerFromConfig(c *Config) *ConfigBasedWebdavHandler {
 
 func (h *ConfigBasedWebdavHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
-	if h.Config.Cors.Enabled {
+	if h.config.Cors.Enabled {
 		if requestOrigin := r.Header.Get("Origin"); requestOrigin != "" {
 			// Add CORS headers before any operation so even on a 401 unauthorized status, CORS will work.
-			h.setCORSHeaders(h.Config.Cors, requestOrigin, w)
+			h.setCORSHeaders(h.config.Cors, requestOrigin, w)
 
 			if r.Method == "OPTIONS" {
 				return
@@ -64,7 +63,7 @@ func (h *ConfigBasedWebdavHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 		}
 	}
 
-	if h.Config.Auth {
+	if h.config.Auth {
 		w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
 	}
 
@@ -77,31 +76,26 @@ func (h *ConfigBasedWebdavHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 
 	h.serveFiles(user, w, r)
 
-	// if user != nil {
-	// 	u = user
-	// }
-
-	// h.serveFiles(u, w, r)
 }
 
 func (h *ConfigBasedWebdavHandler) setCORSHeaders(cors CorsCfg, requestOrigin string, w http.ResponseWriter) {
 	headers := w.Header()
 
-	hostAllowed := isAllowedHost(h.Config.Cors.AllowedHosts, requestOrigin)
+	hostAllowed := isAllowedHost(h.config.Cors.AllowedHosts, requestOrigin)
 
 	if h.allowAllHosts || hostAllowed {
 		headers.Set("Access-Control-Allow-Headers",
-			strings.Join(h.Config.Cors.AllowedHeaders, ", "))
+			strings.Join(h.config.Cors.AllowedHeaders, ", "))
 		headers.Set("Access-Control-Allow-Methods",
-			strings.Join(h.Config.Cors.AllowedMethods, ", "))
+			strings.Join(h.config.Cors.AllowedMethods, ", "))
 
-		if h.Config.Cors.Credentials {
+		if h.config.Cors.Credentials {
 			headers.Set("Access-Control-Allow-Credentials", "true")
 		}
 
-		if len(h.Config.Cors.ExposedHeaders) > 0 {
+		if len(h.config.Cors.ExposedHeaders) > 0 {
 			headers.Set("Access-Control-Expose-Headers",
-				strings.Join(h.Config.Cors.ExposedHeaders, ", "))
+				strings.Join(h.config.Cors.ExposedHeaders, ", "))
 		}
 	}
 
@@ -115,15 +109,15 @@ func (h *ConfigBasedWebdavHandler) setCORSHeaders(cors CorsCfg, requestOrigin st
 func (h *ConfigBasedWebdavHandler) checkAuth(r *http.Request) (user *User, authorized bool) {
 	username, password, ok := r.BasicAuth()
 
-	if !h.Config.Auth {
+	if !h.config.Auth {
 		if ok {
-			user, _ = h.Config.Users[username]
+			user, _ = h.config.Users[username]
 		}
 		return user, true
 	}
 
 	authorized = false
-	user, ok = h.Config.Users[username]
+	user, ok = h.config.Users[username]
 
 	if ok && user != nil {
 
