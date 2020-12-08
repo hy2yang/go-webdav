@@ -2,7 +2,7 @@ package webdav
 
 import (
 	"context"
-	"log"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -21,7 +21,7 @@ type CorsCfg struct {
 
 // Config is the configuration of a WebDAV instance.
 type Config struct {
-	*User
+	//*User
 	Auth  bool
 	Cors  CorsCfg
 	Users map[string]*User
@@ -34,6 +34,7 @@ type ConfigBasedWebdavHandler struct {
 	handlers      map[*User]*webdav.Handler
 }
 
+//HandlerFromConfig generates config based handler
 func HandlerFromConfig(c *Config) *ConfigBasedWebdavHandler {
 	allowAllHosts := false
 	for _, v := range c.Cors.AllowedHosts {
@@ -43,19 +44,23 @@ func HandlerFromConfig(c *Config) *ConfigBasedWebdavHandler {
 		}
 	}
 
-	return &ConfigBasedWebdavHandler{Config: c, allowAllHosts: allowAllHosts, handlers: make(map[*User]*webdav.Handler)}
+	return &ConfigBasedWebdavHandler{
+		Config:        c,
+		allowAllHosts: allowAllHosts,
+		handlers:      make(map[*User]*webdav.Handler),
+	}
 }
 
 func (h *ConfigBasedWebdavHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	u := h.Config.User
-	requestOrigin := r.Header.Get("Origin")
 
-	if h.Config.Cors.Enabled && requestOrigin != "" {
-		// Add CORS headers before any operation so even on a 401 unauthorized status, CORS will work.
-		h.setCORSHeaders(h.Config.Cors, requestOrigin, w)
+	if h.Config.Cors.Enabled {
+		if requestOrigin := r.Header.Get("Origin"); requestOrigin != "" {
+			// Add CORS headers before any operation so even on a 401 unauthorized status, CORS will work.
+			h.setCORSHeaders(h.Config.Cors, requestOrigin, w)
 
-		if r.Method == "OPTIONS" {
-			return
+			if r.Method == "OPTIONS" {
+				return
+			}
 		}
 	}
 
@@ -70,11 +75,13 @@ func (h *ConfigBasedWebdavHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	if user != nil {
-		u = user
-	}
+	h.serveFiles(user, w, r)
 
-	h.serveFiles(u, w, r)
+	// if user != nil {
+	// 	u = user
+	// }
+
+	// h.serveFiles(u, w, r)
 }
 
 func (h *ConfigBasedWebdavHandler) setCORSHeaders(cors CorsCfg, requestOrigin string, w http.ResponseWriter) {
@@ -113,29 +120,28 @@ func (h *ConfigBasedWebdavHandler) checkAuth(r *http.Request) (user *User, autho
 			user, _ = h.Config.Users[username]
 		}
 		return user, true
-
-	} else {
-		authorized := true
-
-		if !ok {
-			authorized = false
-		}
-
-		user, ok := h.Config.Users[username]
-		if !ok { //user not found in config
-			authorized = false
-		}
-
-		if user != nil && !checkPassword(user.Password, password) {
-			log.Println("Wrong Password for user", username)
-			authorized = false
-		}
-
-		return user, authorized
 	}
+
+	authorized = false
+	user, ok = h.Config.Users[username]
+
+	if ok && user != nil {
+
+		if !checkPassword(user.Password, password) {
+			fmt.Println("Wrong Password for user", username)
+		} else {
+			authorized = true
+		}
+
+	}
+
+	return user, authorized
+
 }
 
 func (h *ConfigBasedWebdavHandler) serveFiles(user *User, w http.ResponseWriter, r *http.Request) {
+	fmt.Println(r.Method, r.URL)
+
 	if !userHasPermission(user, r) {
 		http.Error(w, "No permission", http.StatusForbidden)
 		return
@@ -169,6 +175,7 @@ func (h *ConfigBasedWebdavHandler) getHanlderOf(user *User) *webdav.Handler {
 			FileSystem: webdav.Dir(user.Scope),
 			LockSystem: webdav.NewMemLS(),
 		}
+		fmt.Println(webdav.Dir(user.Scope))
 		h.handlers[user] = handler
 	}
 

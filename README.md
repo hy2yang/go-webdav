@@ -1,8 +1,11 @@
 # webdav
 
-[![Build](https://img.shields.io/circleci/project/github)](https://circleci.com/gh/)
-[![Go Report Card](https://goreportcard.com/badge/github.com/)](https://goreportcard.com/report/)
-[![Version](https://img.shields.io/github/release/)](https://github.com/)
+As of golang.org/x/net v0.0.0-20200822124328-c89045814202 there's [a bug in the webdav implementation](https://github.com/golang/go/issues/16195), fix at https://go-review.googlesource.com/c/net/+/249797.
+
+To incoporate the fix before release:
+`go mod vendor`
+update the verder go file following the fix
+`go build -mod=vendor`
 
 ## Install
 

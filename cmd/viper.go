@@ -1,7 +1,8 @@
 package cmd
 
 import (
-	"log"
+	"fmt"
+	"os"
 
 	"github.com/spf13/pflag"
 	v "github.com/spf13/viper"
@@ -50,6 +51,7 @@ func getOptB(flags *pflag.FlagSet, key string) bool {
 
 func checkErr(err error) {
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println(err)
+		os.Exit(1)
 	}
 }
