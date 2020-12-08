@@ -17,7 +17,6 @@ import (
 func initConfig() {
 	if cfgFile == "" {
 		v.AddConfigPath(".")
-		v.AddConfigPath("/etc/webdav/")
 		v.SetConfigName("config")
 	} else {
 		v.SetConfigFile(cfgFile)
@@ -39,22 +38,12 @@ func initConfig() {
 
 func readConfig(flags *pflag.FlagSet) *webdav.Config {
 	cfg := &webdav.Config{
-		User: &webdav.User{
-			Scope:  getOpt(flags, "scope"),
-			Modify: getOptB(flags, "modify"),
-			Rules:  []*webdav.Rule{},
-		},
 		Auth: getOptB(flags, "auth"),
 		Cors: webdav.CorsCfg{
 			Enabled:     false,
 			Credentials: false,
 		},
 		Users: map[string]*webdav.User{},
-	}
-
-	rawRules := v.Get("rules")
-	if rules, ok := rawRules.([]interface{}); ok {
-		cfg.User.Rules = parseRules(rules)
 	}
 
 	rawUsers := v.Get("users")
@@ -127,13 +116,13 @@ func loadFromEnv(v string) (string, error) {
 
 func parseUsers(raw []interface{}, c *webdav.Config) {
 	var err error
-	for _, v := range raw {
-		if u, ok := v.(map[interface{}]interface{}); ok {
+	for _, entry := range raw {
+		if u, ok := entry.(map[interface{}]interface{}); ok {
+
 			username, ok := u["username"].(string)
 			if !ok {
 				log.Fatal("user needs an username")
 			}
-
 			if strings.HasPrefix(username, "{env}") {
 				username, err = loadFromEnv(username)
 				checkErr(err)
@@ -141,39 +130,38 @@ func parseUsers(raw []interface{}, c *webdav.Config) {
 
 			password, ok := u["password"].(string)
 			if !ok {
-				password = ""
-
 				if numPwd, ok := u["password"].(int); ok {
 					password = strconv.Itoa(numPwd)
+				} else {
+					password = ""
 				}
 			}
-
 			if strings.HasPrefix(password, "{env}") {
 				password, err = loadFromEnv(password)
 				checkErr(err)
 			}
 
+			rules, ok := u["rules"]
+			parsedRules := []*webdav.Rule{}
+			if ok {
+				if rawRules, ok := rules.([]interface{}); ok {
+					parsedRules = parseRules(rawRules)
+				} else {
+					log.Fatal("error parsing rules of user: ", username)
+				}
+				// rules are not required, but fails if rules exist and got errors when parsing
+			}
+
 			user := &webdav.User{
 				Username: username,
 				Password: password,
-				Scope:    c.User.Scope,
-				Modify:   c.User.Modify,
-				Rules:    c.User.Rules,
+				Scope:    u["scope"].(string),
+				Modify:   u["modify"].(bool),
+				Rules:    parsedRules,
 			}
 
-			if scope, ok := u["scope"].(string); ok {
-				user.Scope = scope
-			}
-
-			if modify, ok := u["modify"].(bool); ok {
-				user.Modify = modify
-			}
-
-			if rules, ok := u["rules"].([]interface{}); ok {
-				user.Rules = parseRules(rules)
-			}
-			
 			c.Users[username] = user
+
 		}
 	}
 }
@@ -210,9 +198,8 @@ func corsProperty(property string, cfg map[string]interface{}) []string {
 
 		if len(items) == 0 {
 			return def
-		} else {
-			return items
 		}
+		return items
 	}
 
 	return def
