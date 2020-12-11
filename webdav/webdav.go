@@ -9,16 +9,6 @@ import (
 	"golang.org/x/net/webdav"
 )
 
-// CorsCfg is the CORS config.
-type CorsCfg struct {
-	Enabled        bool
-	Credentials    bool
-	AllowedHeaders []string
-	AllowedHosts   []string
-	AllowedMethods []string
-	ExposedHeaders []string
-}
-
 // Config is the configuration of a WebDAV instance.
 type Config struct {
 	Auth  bool
@@ -141,12 +131,11 @@ func (h *ConfigBasedWebdavHandler) serveFiles(user *User, w http.ResponseWriter,
 		return
 	}
 
-	handler := h.getHanlderOf(user)
-
 	if r.Method == "HEAD" {
 		w = newResponseWriterNoBody(w)
 	}
 
+	handler := h.getHanlderOf(user)
 	if r.Method == "GET" {
 		info, err := handler.FileSystem.Stat(context.TODO(), r.URL.Path)
 		if err == nil && info.IsDir() {

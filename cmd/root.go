@@ -54,13 +54,14 @@ The precedence of the configuration values are as follows:
 The environment variables are prefixed by "WD_" followed by the option
 name in caps. So to set "cert" via an env variable, you should
 set WD_CERT.`,
+
 	Run: func(cmd *cobra.Command, args []string) {
 		flags := cmd.Flags()
-		handler := webdav.HandlerFromConfig(readConfig(flags))
+		handler := webdav.HandlerFromConfig(parseConfig(flags))
 
 		// Builds the address and a listener.
-		address := getOpt(flags, "address") + ":" + getOpt(flags, "port")
-		listener, err := net.Listen("tcp", address)
+		socket := getValAsString(flags, "address") + ":" + getValAsString(flags, "port")
+		listener, err := net.Listen("tcp", socket)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -69,8 +70,8 @@ set WD_CERT.`,
 		fmt.Println("Listening on", listener.Addr().String())
 
 		// Starts the server.
-		if getOptB(flags, "tls") {
-			if err := http.ServeTLS(listener, handler, getOpt(flags, "cert"), getOpt(flags, "key")); err != nil {
+		if getValAsBool(flags, "tls") {
+			if err := http.ServeTLS(listener, handler, getValAsString(flags, "cert"), getValAsString(flags, "key")); err != nil {
 				log.Fatal(err)
 			}
 		} else {

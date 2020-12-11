@@ -4,8 +4,6 @@ import (
 	"errors"
 	"log"
 	"os"
-	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/hy2yang/go-webdav/webdav"
@@ -36,19 +34,14 @@ func initConfig() {
 	}
 }
 
-func readConfig(flags *pflag.FlagSet) *webdav.Config {
+func parseConfig(flags *pflag.FlagSet) *webdav.Config {
 	cfg := &webdav.Config{
-		Auth: getOptB(flags, "auth"),
+		Auth: getValAsBool(flags, "auth"),
 		Cors: webdav.CorsCfg{
 			Enabled:     false,
 			Credentials: false,
 		},
-		Users: map[string]*webdav.User{},
-	}
-
-	rawUsers := v.Get("users")
-	if users, ok := rawUsers.([]interface{}); ok {
-		parseUsers(users, cfg)
+		Users: parseUsers(), //parsed users
 	}
 
 	rawCors := v.Get("cors")
@@ -63,41 +56,21 @@ func readConfig(flags *pflag.FlagSet) *webdav.Config {
 	return cfg
 }
 
-func parseRules(raw []interface{}) []*webdav.Rule {
-	rules := []*webdav.Rule{}
+func parseUsers() map[string]*webdav.User {
+	res := map[string]*webdav.User{}
 
-	for _, v := range raw {
-		if r, ok := v.(map[interface{}]interface{}); ok {
-			rule := &webdav.Rule{
-				Regex: false,
-				Allow: false,
-				Path:  "",
-			}
+	var users []webdav.User
+	err := v.UnmarshalKey("users", &users)
 
-			if regex, ok := r["regex"].(bool); ok {
-				rule.Regex = regex
-			}
-
-			if allow, ok := r["allow"].(bool); ok {
-				rule.Allow = allow
-			}
-
-			path, ok := r["path"].(string)
-			if !ok {
-				continue
-			}
-
-			if rule.Regex {
-				rule.Regexp = regexp.MustCompile(path)
-			} else {
-				rule.Path = path
-			}
-
-			rules = append(rules, rule)
+	if err != nil {
+		log.Fatal("error parsing user configs")
+	} else {
+		for _, user := range users {
+			res[user.Username] = &user
 		}
 	}
 
-	return rules
+	return res
 }
 
 func loadFromEnv(v string) (string, error) {
@@ -112,58 +85,6 @@ func loadFromEnv(v string) (string, error) {
 	}
 
 	return v, nil
-}
-
-func parseUsers(raw []interface{}, c *webdav.Config) {
-	var err error
-	for _, entry := range raw {
-		if u, ok := entry.(map[interface{}]interface{}); ok {
-
-			username, ok := u["username"].(string)
-			if !ok {
-				log.Fatal("user needs an username")
-			}
-			if strings.HasPrefix(username, "{env}") {
-				username, err = loadFromEnv(username)
-				checkErr(err)
-			}
-
-			password, ok := u["password"].(string)
-			if !ok {
-				if numPwd, ok := u["password"].(int); ok {
-					password = strconv.Itoa(numPwd)
-				} else {
-					password = ""
-				}
-			}
-			if strings.HasPrefix(password, "{env}") {
-				password, err = loadFromEnv(password)
-				checkErr(err)
-			}
-
-			rules, ok := u["rules"]
-			parsedRules := []*webdav.Rule{}
-			if ok {
-				if rawRules, ok := rules.([]interface{}); ok {
-					parsedRules = parseRules(rawRules)
-				} else {
-					log.Fatal("error parsing rules of user: ", username)
-				}
-				// rules are not required, but fails if rules exist and got errors when parsing
-			}
-
-			user := &webdav.User{
-				Username: username,
-				Password: password,
-				Scope:    u["scope"].(string),
-				Modify:   u["modify"].(bool),
-				Rules:    parsedRules,
-			}
-
-			c.Users[username] = user
-
-		}
-	}
 }
 
 func parseCors(cfg map[string]interface{}, c *webdav.Config) {
