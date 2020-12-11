@@ -8,6 +8,7 @@ import (
 	v "github.com/spf13/viper"
 )
 
+// precedence: flags -> viper (env, config) -> default
 func getValAsString(flags *pflag.FlagSet, key string) string {
 	value, _ := flags.GetString(key)
 
@@ -25,6 +26,7 @@ func getValAsString(flags *pflag.FlagSet, key string) string {
 	return value
 }
 
+// precedence: flags -> viper (env, config) -> default
 func getValAsBool(flags *pflag.FlagSet, key string) bool {
 	value, _ := flags.GetBool(key)
 
