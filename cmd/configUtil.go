@@ -12,25 +12,22 @@ import (
 	v "github.com/spf13/viper"
 )
 
-func initConfig() {
-	if cfgFile == "" {
-		v.AddConfigPath(".")
-		v.SetConfigName("config")
-	} else {
-		v.SetConfigFile(cfgFile)
-	}
+func initConfig(cfgFileName *string) func() {
+	return func() {
+		if *cfgFileName != "" {
+			v.SetConfigFile(*cfgFileName)
+		} else {
+			v.AddConfigPath(".")
+			v.SetConfigName("config")
+		}
 
-	v.SetEnvPrefix("WD")
-	v.AutomaticEnv()
-	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+		v.SetEnvPrefix("WD")
+		v.AutomaticEnv()
+		v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
-	if err := v.ReadInConfig(); err != nil {
-		if _, ok := err.(v.ConfigParseError); ok {
+		if err := v.ReadInConfig(); err != nil {
 			panic(err)
 		}
-		cfgFile = "No config file used"
-	} else {
-		cfgFile = "Using config file: " + v.ConfigFileUsed()
 	}
 }
 
