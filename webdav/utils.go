@@ -7,7 +7,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-var allowed = map[string]struct{}{
+var modMethods = map[string]struct{}{
 	"PUT":    {},
 	"POST":   {},
 	"MKCOL":  {},
@@ -38,13 +38,13 @@ func userHasPermission(u *User, r *http.Request) bool {
 	// Checks
 	// 1. user permissions relatively to this PATH.
 	// 2. if this request modified the files and the user doesn't have permission
-	if !u.Allowed(r.URL.Path) || (isMethodModification(r.Method) && !u.Modify) {
+	if !u.Allowed(r.URL.Path) || (isModMethod(r.Method) && !u.Modify) {
 		return false
 	}
 	return true
 }
 
-func isMethodModification(method string) bool {
-	_, ok := allowed[method]
+func isModMethod(method string) bool {
+	_, ok := modMethods[method]
 	return ok
 }
