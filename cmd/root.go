@@ -58,7 +58,7 @@ var rootCmd = &cobra.Command{
 		handler := webdav.HandlerFromConfig(parseConfig(flags))
 
 		// Builds the address and a listener.
-		socket := getValAsString(flags, "address") + ":" + getValAsString(flags, "port")
+		socket := getString(flags, "address") + ":" + getString(flags, "port")
 		listener, err := net.Listen("tcp", socket)
 		if err != nil {
 			log.Fatal(err)
@@ -67,8 +67,8 @@ var rootCmd = &cobra.Command{
 		log.Println("Webdav server istening on", listener.Addr().String())
 
 		// Starts the server.
-		if getValAsBool(flags, "tls") {
-			if err := http.ServeTLS(listener, handler, getValAsString(flags, "cert"), getValAsString(flags, "key")); err != nil {
+		if getBool(flags, "tls") {
+			if err := http.ServeTLS(listener, handler, getString(flags, "cert"), getString(flags, "key")); err != nil {
 				log.Fatal(err)
 			}
 		} else {

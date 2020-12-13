@@ -33,7 +33,7 @@ func initConfig(cfgFileName *string) func() {
 
 func parseConfig(flags *pflag.FlagSet) *webdav.Config {
 	cfg := &webdav.Config{
-		Auth:  getValAsBool(flags, "auth"),
+		Auth:  getBool(flags, "auth"),
 		Cors:  parseCors(),
 		Users: parseUsers(),
 	}

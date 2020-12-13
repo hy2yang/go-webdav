@@ -7,22 +7,35 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-var allowed = map[string]struct{}{
-	"PUT":    {},
-	"POST":   {},
-	"MKCOL":  {},
-	"DELETE": {},
-	"COPY":   {},
-	"MOVE":   {},
-}
+var (
+	modMethods = map[string]struct{}{
+		"PUT":    {},
+		"POST":   {},
+		"MKCOL":  {},
+		"DELETE": {},
+		"COPY":   {},
+		"MOVE":   {},
+	}
+	pwCache = map[string]string{} // valid saved-input value pairs
+)
 
 func checkPassword(saved, input string) bool {
-	if strings.HasPrefix(saved, "{bcrypt}") {
-		savedPassword := strings.TrimPrefix(saved, "{bcrypt}")
-		return bcrypt.CompareHashAndPassword([]byte(savedPassword), []byte(input)) == nil
+	if v, pr := pwCache[saved]; pr {
+		return v == input
 	}
 
-	return saved == input
+	var res bool
+	if strings.HasPrefix(saved, "{bcrypt}") {
+		res = bcrypt.CompareHashAndPassword(
+			[]byte(strings.TrimPrefix(saved, "{bcrypt}")), []byte(input)) == nil
+	} else {
+		res = (saved == input)
+	}
+	if res {
+		pwCache[saved] = input
+	}
+
+	return res
 }
 
 func isAllowedHost(allowedHosts []string, origin string) bool {
@@ -38,13 +51,13 @@ func userHasPermission(u *User, r *http.Request) bool {
 	// Checks
 	// 1. user permissions relatively to this PATH.
 	// 2. if this request modified the files and the user doesn't have permission
-	if !u.Allowed(r.URL.Path) || (isMethodModification(r.Method) && !u.Modify) {
+	if !u.Allowed(r.URL.Path) || (!u.Modify && isModMethod(r.Method)) {
 		return false
 	}
 	return true
 }
 
-func isMethodModification(method string) bool {
-	_, ok := allowed[method]
+func isModMethod(method string) bool {
+	_, ok := modMethods[method]
 	return ok
 }

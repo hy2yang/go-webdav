@@ -9,7 +9,7 @@ import (
 )
 
 // precedence: flags -> viper (env, config) -> default
-func getValAsString(flags *pflag.FlagSet, key string) string {
+func getString(flags *pflag.FlagSet, key string) string {
 	value, _ := flags.GetString(key)
 
 	// If set on Flags, use it.
@@ -27,7 +27,7 @@ func getValAsString(flags *pflag.FlagSet, key string) string {
 }
 
 // precedence: flags -> viper (env, config) -> default
-func getValAsBool(flags *pflag.FlagSet, key string) bool {
+func getBool(flags *pflag.FlagSet, key string) bool {
 	value, _ := flags.GetBool(key)
 
 	// If set on Flags, use it.
